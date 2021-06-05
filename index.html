@@ -3,6 +3,7 @@
   <meta charset="UTF-8" />
   <title>Uplift Swineland Plots</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A==" crossorigin="" />
+  <script src="cacheduplifts.js"></script>
   <!-- for testing <script src="testdata.js"></script> -->
   <style>
       #image-map {
@@ -17,6 +18,9 @@
           height: 3em;
           text-align: center;
       }
+      #lastsale {
+          margin-left: 3em;
+      }
       body {
           margin-left: 0px;
       }
@@ -25,6 +29,14 @@
       var plots = new Array();
       var owners = new Object();
       var gridlines = new Array();
+	  //var api_server = 'wax.greymass.com'
+	  const api_server = 'wax.cryptolions.io'
+      //var api_server = 'api.waxsweden.org'
+      
+      const map_offset_left = 24.0,
+          map_offset_top = 23.1,
+          plot_height = 25.0,
+          plot_width = 25.03;
       
       function fetchNFTs() {
 		  fetch("https://wax.api.atomicassets.io/atomicassets/v1/assets?collection_name=rplanet&schema_name=lands&page=1&limit=2000&mutable_data.uplift_world=Swineland")
@@ -32,6 +44,41 @@
           .then(data => processData(data.data))
 	  	  .catch(error => {
               document.getElementById('menu-bar').innerHTML = 'Failed to fetch data from Atomic Assest API. Try again when they fix their shit. (' + error + ')';
+	  	  });
+      }
+      
+      async function fetchLastUplift() {
+          var deltas;
+		  await fetch("https://" + api_server + "/v2/history/get_deltas?code=l.rplanet&scope=l.rplanet&table=uplift")
+		  .then(response => response.json())
+          .then(data => deltas = data.deltas)
+	  	  .catch(error => {
+              console.log('Failed to fetch data from Cryptolions API - ' + error);
+	  	  });
+          processNew(deltas);
+      }
+
+      function fetchUplifts() {
+		  fetch("https://" + api_server + "/v1/chain/get_table_rows", {
+		    "headers": {
+		      "accept": "*/*",
+		      "accept-language": "en-US,en;q=0.9",
+		      "content-type": "text/plain;charset=UTF-8",
+		      "sec-ch-ua": "\"Google Chrome\";v=\"89\", \"Chromium\";v=\"89\", \";Not A Brand\";v=\"99\"",
+		      "sec-ch-ua-mobile": "?0",
+		      "sec-fetch-dest": "empty",
+		      "sec-fetch-mode": "cors",
+		      "sec-fetch-site": "cross-site"
+		    },
+		    "referrerPolicy": "strict-origin-when-cross-origin",
+		    "body": '{"json":true,"code":"l.rplanet","scope":"l.rplanet","table":"uplift","lower_bound":"14173392078600","upper_bound":"","index_position":1,"key_type":"","limit":6000,"reverse":false,"show_payer":false}',
+		    "method": "POST",
+		    "mode": "cors",
+		    "credentials": "omit" })
+		  .then(response => response.json())
+          .then(data => console.log(data))
+	  	  .catch(error => {
+              document.getElementById('menu-bar').innerHTML = 'Failed to fetch data for new sales. Try again when WAX fixes their shit. (' + error + ')';
 	  	  });
       }
 
@@ -45,8 +92,8 @@
           //processData(raw_asset.data);
       };
       
-      function highlightOwner(object) {
-          let owner = object.value;
+      function highlightOwner(owner) {
+          window.history.replaceState({ additionalInformation: 'Filter for owner' }, 'Uplift Swineland Plots', window.location.href.split('?')[0] + '?owner=' + encodeURIComponent(owner));
           for (let i = 1; i < plots.length; i++) {
               if (typeof plots[i] != 'undefined') {
                   for (let j = 1; j < plots[i].length; j++) {
@@ -62,6 +109,51 @@
            }
       }
       
+      function timeSince(date) {
+        var seconds = Math.floor((new Date() - date) / 1000);
+        var interval = seconds / 31536000;
+        if (interval > 1) {
+          return Math.floor(interval) + " years ago";
+        }
+        interval = seconds / 2592000;
+        if (interval > 1) {
+          return Math.floor(interval) + " months ago";
+        }
+        interval = seconds / 86400;
+        if (interval > 1) {
+          return Math.floor(interval) + " days ago";
+        }
+        interval = seconds / 3600;
+        if (interval > 1) {
+          return Math.floor(interval) + " hours ago";
+        }
+        interval = seconds / 60;
+        if (interval > 1) {
+          return Math.floor(interval) + " minutes ago";
+        }
+        return "Less that 1 minute ago";
+      }
+      
+      function processNew(data) {
+          //var html = "";
+          //html += 'Newest: ' + timeSince(Date(data[0].timestamp));
+          //document.getElementById('lastsale').innerHTML = html;
+          
+          let nextorder = data[0].data.order + 1;
+          let found = cached_uplifts.find( ({ order }) => order == nextorder );
+          let location = parseInt(found.loc)
+          y = Math.floor(location / 214748364800);
+          x = (location - y * 214748364800) / 50;
+          let xx = (x - 1) * plot_width + map_offset_left;
+          let yy = (79 - y) * plot_width + map_offset_top;
+          let poptext = 'Next Uplift<br>'
+              + 'Location: ' + (x * 50) + ':' + (y * 50) + '<br>'
+              + '<a href="https://worldmaps.theuplift.world/Swineland#Swineland;flat;' + (x * 50 + 25) + ',64,' + (y * 50 + 25) + ';6">Live Map</a><br>';
+          
+          if( typeof gridlines[x] == 'undefined' ) gridlines[x] = new Array();
+          gridlines[x][y] = L.rectangle([[yy, xx],[yy+plot_width, xx+plot_width]], {color: "#00ff00", weight: 5}).bindPopup(poptext).addTo(map);          
+      }
+      
       function processData(data) {
           for (let i = 0; i < data.length; i++) {
               coords = data[i].mutable_data.uplift_location.split(',');
@@ -71,10 +163,6 @@
               plots[coords[1]][coords[0]] = data[i];
           }
                     
-          let map_offset_left = 24.0,
-              map_offset_top = 23.1,
-              plot_height = 25.0,
-              plot_width = 25.03;
           for (let i = 1; i < plots.length; i++) {
               if (typeof plots[i] != 'undefined') {
                   for (let j = 1; j < plots[i].length; j++) {
@@ -99,15 +187,23 @@
               }
           }
           
-          html = 'Highlight Owner: <select name="owner" id="owner"" onchange="highlightOwner(this)">'
+          html = 'Highlight Owner: <select name="owner" id="owner"" onchange="highlightOwner(this.value)">'
                 +'<option value=""></option>'
           sortedowners = Object.keys(owners),
           sortedowners.sort();
           for (let i = 0; i < sortedowners.length; i++) {
               html += '<option value="' + sortedowners[i] + '">' + sortedowners[i] + ' (' + owners[sortedowners[i]] + ')</option>';
           }
-          html += '</select>';
+          html += '</select><span id="lastsale"></span>';
           document.getElementById('menu-bar').innerHTML = html;
+        
+    	  var queries = window.location.search.replace(/^\?/, '').split('&'), split;
+    	  for( var i = 0; i < queries.length; i++ ) {
+    	      split = queries[i].split('=');
+    		  if (split[0] === 'owner') highlightOwner(split[1]);
+          }
+          
+          fetchLastUplift();
       }
       
   </script>
@@ -120,10 +216,10 @@
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js" integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA==" crossorigin=""></script>
     <script>
         var map = L.map('image-map', {
-          minZoom: 0,
+          minZoom: -1,
           maxZoom: 4,
           center: [1850, 100],
-          zoom: 1,
+          zoom: 0,
           crs: L.CRS.Simple
         });
 
