@@ -21,6 +21,16 @@
       #lastsale {
           margin-left: 3em;
       }
+      #nextsale {
+          margin-left: 3em;
+      }
+      .number-label {
+          font-weight: bold;
+          font-size: 2em;
+          font-color: #00ff00;
+          -webkit-text-fill-color: #00ff00;
+          -webkit-text-stroke: 1px black;
+      }
       body {
           margin-left: 0px;
       }
@@ -29,6 +39,10 @@
       var plots = new Array();
       var owners = new Object();
       var gridlines = new Array();
+      var last_sale_date = 0;
+      var show_next = 4;
+      var sale_timer;
+      
 	  //var api_server = 'wax.greymass.com'
 	  const api_server = 'wax.cryptolions.io'
       //var api_server = 'api.waxsweden.org'
@@ -110,65 +124,93 @@
       }
       
       function timeSince(date) {
-        var seconds = Math.floor((new Date() - date) / 1000);
-        var interval = seconds / 31536000;
-        if (interval > 1) {
-          return Math.floor(interval) + " years ago";
-        }
-        interval = seconds / 2592000;
-        if (interval > 1) {
-          return Math.floor(interval) + " months ago";
-        }
-        interval = seconds / 86400;
-        if (interval > 1) {
-          return Math.floor(interval) + " days ago";
-        }
-        interval = seconds / 3600;
-        if (interval > 1) {
-          return Math.floor(interval) + " hours ago";
-        }
-        interval = seconds / 60;
-        if (interval > 1) {
-          return Math.floor(interval) + " minutes ago";
-        }
-        return "Less that 1 minute ago";
+          var seconds = Math.floor((new Date() - last_sale_date) / 1000);
+          var interval = seconds / 31536000;
+          var msg = Math.floor(interval) + " years ago";
+          if (interval <= 1) {
+              interval = seconds / 2592000;
+              if (interval > 1) {
+                msg = Math.floor(interval) + " months ago";
+              } else {
+                  interval = seconds / 86400;
+                  if (interval > 1) {
+                    msg = Math.floor(interval) + " days ago";
+                  } else {
+                      interval = seconds / 3600;
+                      if (interval > 1) {
+                        msg = Math.floor(interval) + " hours ago";
+                      } else {
+                          interval = seconds / 60;
+                          if (interval > 1) {
+                            msg = Math.floor(interval) + " minutes ago";
+                          } else {
+                              msg = "Less that 1 minute ago";
+                          }
+                      }
+                  }
+              }
+          }
+        
+          document.getElementById('saletimer').innerHTML = '&nbsp;(' + msg + ')';
       }
       
-      function highlightGrid(x, y, color, poptext) {
-          let xx = (x - 1) * plot_width + map_offset_left;
-          let yy = (79 - y) * plot_width + map_offset_top;
+      function locationToGrid(location) {
+          location = parseInt(location);
+          let y = Math.floor(location / 214748364800);
+          let x = (location - y * 214748364800) / 50;
+          return {x : x, y: y};
+      }
+      
+      function gridToMap(grid) {
+          let xx = (grid.x - 1) * plot_width + map_offset_left;
+          let yy = (79 - grid.y) * plot_width + map_offset_top;
+          return {x : xx, y: yy};
+      }
+      
+      function highlightGrid(grid, color, number, poptext) {
+          let mapcord = gridToMap(grid)
           
-          if( typeof gridlines[x] == 'undefined' ) gridlines[x] = new Array();
-          gridlines[x][y] = L.rectangle([[yy, xx],[yy+plot_width, xx+plot_width]], {color: color, weight: 5}).bindPopup(poptext).addTo(map);          
+          if( typeof gridlines[grid.x] == 'undefined' ) gridlines[grid.x] = new Array();
+          gridlines[grid.x][grid.y] = L.rectangle([[mapcord.y, mapcord.x],[mapcord.y+plot_width, mapcord.x+plot_width]], {color: color, weight: 5}).bindPopup(poptext).addTo(map);
+          
+          var myIcon = L.divIcon({className: 'number-label', html: number});
+          L.marker([mapcord.y+plot_width+10, mapcord.x+plot_width+5], {icon: myIcon}).addTo(map);
       }
       
       function processNew(data) {
-          //var html = "";
-          //html += 'Newest: ' + timeSince(Date(data[0].timestamp));
-          //document.getElementById('lastsale').innerHTML = html;
+          var html = "";
+          last_sale_date = new Date(data[0].timestamp + 'Z');
+          console.log(last_sale_date);
+          let grid = locationToGrid(data[0].data.loc);
+          let mapcord = gridToMap(grid);
+          html += 'Newest: <a href="javascript:map.panTo(new L.LatLng('+mapcord.y+','+mapcord.x+'));">' + (grid.x * 50) + ':' + (grid.y * 50) + '</a>';
+          document.getElementById('lastsale').innerHTML = html;
+          sale_timer = setInterval(timeSince(), 15000);
           
-          for (let i = 1; i < 5; i++) {
+          let counter = 1;
+          for (let i = 1; i <= show_next; i++) {
               let nextorder = data[0].data.order + i;
               let found = cached_uplifts.find( ({ order }) => order == nextorder );
-              let location = parseInt(found.loc)
-              let color = '#00ff00';
-              let name = 'Next Uplift'
-              if (i == 2) {
-                  color = '#00aa00';
-                  name = 'Uplift After Next (+1)'
-              } else if (i == 3) {
-                  color = '#006600';
-                  name = 'Uplift After Next 2 (+2)'
-              } else if (i == 4) {
-                  color = '#006600';
-                  name = 'Uplift After Next 3 (+3)'
+              if (found.asset_id != 0) {
+                  show_next++;
+                  continue;
               }
-              y = Math.floor(location / 214748364800);
-              x = (location - y * 214748364800) / 50;
+              let color = (counter == 1) ? '#00ff00' : '#00bb00';
+              let name = (counter == 1) ? 'Next Uplift' : 'Uplift After Next';
+              if (counter > 2) name += (counter - 1);
+              
+              grid = locationToGrid(found.loc);
               let poptext = name + '<br>'
-                  + 'Location: ' + (x * 50) + ':' + (y * 50) + '<br>'
-                  + '<a href="https://worldmaps.theuplift.world/Swineland#Swineland;flat;' + (x * 50 + 25) + ',64,' + (y * 50 + 25) + ';6">Live Map</a><br>';
-              highlightGrid(x, y, color, poptext);
+                  + 'Location: ' + (grid.x * 50) + ':' + (grid.y * 50) + '<br>'
+                  + '<a href="https://worldmaps.theuplift.world/Swineland#Swineland;flat;' + (grid.x * 50 + 25) + ',64,' + (grid.y * 50 + 25) + ';6">Live Map</a><br>';
+              highlightGrid(grid, color, counter, poptext);
+              
+              if (counter == 1) {
+                  mapcord = gridToMap(grid);
+                  html = 'Next: <a href="javascript:map.panTo(new L.LatLng('+mapcord.y+','+mapcord.x+'));">' + (grid.x * 50) + ':' + (grid.y * 50) + '</a>';
+                  document.getElementById('nextsale').innerHTML = html;
+              }
+              counter++;
           }
       }
       
@@ -188,7 +230,7 @@
                           let x = (j - 1) * plot_width + map_offset_left;
                           let y = (79 - i) * plot_width + map_offset_top;
                           let plot = plots[i][j].data
-                          let poptext = plots[i][j].owner + '<br>'
+                          let poptext = '<a href="javascript:highlightOwner(\'' + plots[i][j].owner + '\');">' + plots[i][j].owner + '</a><br>'
                                + 'NFT:&nbsp;<a href="https://wax.atomichub.io/explorer/asset/' + plots[i][j].asset_id + '">' +  plots[i][j].asset_id + '</a><br>'
                                +  plot.rarity.proper() + '&nbsp' + plot.mineral + '<br>'
                                + 'Location: ' + plot.uplift_location + '<br>'
@@ -212,13 +254,18 @@
           for (let i = 0; i < sortedowners.length; i++) {
               html += '<option value="' + sortedowners[i] + '">' + sortedowners[i] + ' (' + owners[sortedowners[i]] + ')</option>';
           }
-          html += '</select><span id="lastsale"></span>';
+          html += '</select><span id="lastsale"></span><span id="saletimer"></span><span id="nextsale"></span>';
           document.getElementById('menu-bar').innerHTML = html;
         
     	  var queries = window.location.search.replace(/^\?/, '').split('&'), split;
     	  for( var i = 0; i < queries.length; i++ ) {
     	      split = queries[i].split('=');
     		  if (split[0] === 'owner') highlightOwner(split[1]);
+              if (split[0] === 'showNext') {
+                  show_next = parseInt(split[1]);
+                  if (show_next < 1) show_next = 1;
+                  if (show_next > 100) show_next = 100;
+              }
           }
           
           fetchLastUplift();
