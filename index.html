@@ -122,8 +122,8 @@
         var map = L.map('image-map', {
           minZoom: 0,
           maxZoom: 4,
-          center: [2000, 100],
-          zoom: 2,
+          center: [1850, 100],
+          zoom: 1,
           crs: L.CRS.Simple
         });
 
@@ -134,7 +134,7 @@
         var bounds = new L.LatLngBounds([0,h], [w, 0]);
         L.imageOverlay(url, bounds).addTo(map);
 
-        bounds = new L.LatLngBounds([-20,h+20], [w+20, -20]);
+        bounds = new L.LatLngBounds([-20,h+20], [w+80, -20]);
         map.setMaxBounds(bounds);
     </script>
 </body>
