@@ -150,7 +150,6 @@
                   }
               }
           }
-        
           document.getElementById('saletimer').innerHTML = '&nbsp;(' + msg + ')';
       }
       
@@ -180,12 +179,12 @@
       function processNew(data) {
           var html = "";
           last_sale_date = new Date(data[0].timestamp + 'Z');
-          console.log(last_sale_date);
           let grid = locationToGrid(data[0].data.loc);
           let mapcord = gridToMap(grid);
           html += 'Newest: <a href="javascript:map.panTo(new L.LatLng('+mapcord.y+','+mapcord.x+'));">' + (grid.x * 50) + ':' + (grid.y * 50) + '</a>';
           document.getElementById('lastsale').innerHTML = html;
-          sale_timer = setInterval(timeSince(), 15000);
+          timeSince();
+          sale_timer = setInterval(timeSince, 10000);
           
           let counter = 1;
           for (let i = 1; i <= show_next; i++) {
