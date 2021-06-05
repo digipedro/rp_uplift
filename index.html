@@ -134,24 +134,42 @@
         return "Less that 1 minute ago";
       }
       
+      function highlightGrid(x, y, color, poptext) {
+          let xx = (x - 1) * plot_width + map_offset_left;
+          let yy = (79 - y) * plot_width + map_offset_top;
+          
+          if( typeof gridlines[x] == 'undefined' ) gridlines[x] = new Array();
+          gridlines[x][y] = L.rectangle([[yy, xx],[yy+plot_width, xx+plot_width]], {color: color, weight: 5}).bindPopup(poptext).addTo(map);          
+      }
+      
       function processNew(data) {
           //var html = "";
           //html += 'Newest: ' + timeSince(Date(data[0].timestamp));
           //document.getElementById('lastsale').innerHTML = html;
           
-          let nextorder = data[0].data.order + 1;
-          let found = cached_uplifts.find( ({ order }) => order == nextorder );
-          let location = parseInt(found.loc)
-          y = Math.floor(location / 214748364800);
-          x = (location - y * 214748364800) / 50;
-          let xx = (x - 1) * plot_width + map_offset_left;
-          let yy = (79 - y) * plot_width + map_offset_top;
-          let poptext = 'Next Uplift<br>'
-              + 'Location: ' + (x * 50) + ':' + (y * 50) + '<br>'
-              + '<a href="https://worldmaps.theuplift.world/Swineland#Swineland;flat;' + (x * 50 + 25) + ',64,' + (y * 50 + 25) + ';6">Live Map</a><br>';
-          
-          if( typeof gridlines[x] == 'undefined' ) gridlines[x] = new Array();
-          gridlines[x][y] = L.rectangle([[yy, xx],[yy+plot_width, xx+plot_width]], {color: "#00ff00", weight: 5}).bindPopup(poptext).addTo(map);          
+          for (let i = 1; i < 5; i++) {
+              let nextorder = data[0].data.order + i;
+              let found = cached_uplifts.find( ({ order }) => order == nextorder );
+              let location = parseInt(found.loc)
+              let color = '#00ff00';
+              let name = 'Next Uplift'
+              if (i == 2) {
+                  color = '#00aa00';
+                  name = 'Uplift After Next (+1)'
+              } else if (i == 3) {
+                  color = '#006600';
+                  name = 'Uplift After Next 2 (+2)'
+              } else if (i == 4) {
+                  color = '#006600';
+                  name = 'Uplift After Next 3 (+3)'
+              }
+              y = Math.floor(location / 214748364800);
+              x = (location - y * 214748364800) / 50;
+              let poptext = name + '<br>'
+                  + 'Location: ' + (x * 50) + ':' + (y * 50) + '<br>'
+                  + '<a href="https://worldmaps.theuplift.world/Swineland#Swineland;flat;' + (x * 50 + 25) + ',64,' + (y * 50 + 25) + ';6">Live Map</a><br>';
+              highlightGrid(x, y, color, poptext);
+          }
       }
       
       function processData(data) {
