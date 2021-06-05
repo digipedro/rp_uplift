@@ -1,0 +1,94 @@
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Uplift Swineland Plots</title>
+  <style>
+      table, th, td {
+        border: 1px solid grey;
+      }
+      td {
+          padding: 0.5em;
+          position:relative;
+      }
+      td:hover span.tip{
+        display:block;
+      }
+      .tip{
+        display:none;
+        position:absolute; 
+        z-index:100;
+        border:1px;
+        background-color: lightblue;
+        border: 1px solid blue;
+        padding:3px;
+        top:1em; 
+        left:5em;
+      }
+
+
+  </style>
+  <script>
+      function fetchNFTs() {
+		  fetch("https://wax.api.atomicassets.io/atomicassets/v1/assets?collection_name=rplanet&schema_name=lands&page=1&limit=2000&mutable_data.uplift_world=Swineland")
+		  .then(response => response.json())
+          .then(data => processData(data.data))
+	  	  .catch(error => {
+              document.getElementById('content').innerHTML = 'Failed to fetch data from Atomic Assest API. Try again when they fix their shit. (' + error + ')';
+	  	  });
+      }
+
+      String.prototype.proper = function() {
+          return this.charAt(0).toUpperCase() + this.slice(1);
+      }
+      
+      window.onload = async function() {
+          fetchNFTs();
+      };
+      
+      function processData(data) {
+          var plots = new Array();
+              
+          for (let i = 0; i < data.length; i++) {
+              coords = data[i].mutable_data.uplift_location.split(',');
+              coords[0] = parseInt(coords[0]) / 50;
+              coords[1] = parseInt(coords[1]) / 50;
+              if( typeof plots[coords[1]] == 'undefined' ) plots[coords[1]] = new Array();
+              plots[coords[1]][coords[0]] = data[i];
+          }
+          
+          html = ''
+                    
+          html += '<table>';
+          for (let i = 1; i < plots.length; i++) {
+              html += '<tr>';
+              if( typeof plots[i] == 'undefined' ) {
+                  html += '<td colspan=10>------------------------</td>';
+              } else {
+                  for (let j = 1; j < plots[i].length; j++) {
+                      if( typeof plots[i][j] == 'undefined' ) {
+                          html += '<td>.</td>';
+                      } else {
+                          let plot = plots[i][j].data
+                          html += '<td><span class="tip">' 
+                           + 'NFT:&nbsp;<a href="https://wax.atomichub.io/explorer/asset/' + plots[i][j].asset_id + '">' +  plots[i][j].asset_id + '</a><br>'
+                           +  plot.rarity.proper() + '&nbsp' + plot.mineral + '<br>'
+                           + 'Location: ' + plot.uplift_location + '<br>'
+                           +' </span>' + plots[i][j].owner + '</td>';
+                      }
+                  }
+              }
+              html += '</tr>';
+          }
+          html += '</table>';
+          tippy('[tippy-content]');
+          document.getElementById('content').innerHTML = html
+      }
+      
+  </script>
+</head>
+<body>
+<script src="https://unpkg.com/@popperjs/core@2/dist/umd/popper.min.js"></script>
+<script src="https://unpkg.com/tippy.js@6/dist/tippy-bundle.umd.js"></script>
+<div id='content'>Loading...</div>
+</body>
+</html>

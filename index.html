@@ -1,42 +1,37 @@
-<!DOCTYPE html>
-<html lang="en">
 <html>
 <head>
   <meta charset="UTF-8" />
   <title>Uplift Swineland Plots</title>
-  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A==" crossorigin="" />
+  <!-- for testing <script src="testdata.js"></script> -->
   <style>
-      table, th, td {
-        border: 1px solid grey;
+      #image-map {
+          background: black;
+          width: 100%;
+          position: absolute;
+          top: 3em; 
+          bottom: 0;
       }
-      td {
-          padding: 0.5em;
-          position:relative;
+      #menu-bar {
+          width: 100%;
+          height: 3em;
+          text-align: center;
       }
-      td:hover span.tip{
-        display:block;
+      body {
+          margin-left: 0px;
       }
-      .tip{
-        display:none;
-        position:absolute; 
-        z-index:100;
-        border:1px;
-        background-color: lightblue;
-        border: 1px solid blue;
-        padding:3px;
-        top:1em; 
-        left:5em;
-      }
-
-
   </style>
   <script>
+      var plots = new Array();
+      var owners = new Object();
+      var gridlines = new Array();
+      
       function fetchNFTs() {
 		  fetch("https://wax.api.atomicassets.io/atomicassets/v1/assets?collection_name=rplanet&schema_name=lands&page=1&limit=2000&mutable_data.uplift_world=Swineland")
 		  .then(response => response.json())
           .then(data => processData(data.data))
 	  	  .catch(error => {
-              document.getElementById('content').innerHTML = 'Failed to fetch data from Atomic Assest API. Try again when they fix their shit. (' + error + ')';
+              document.getElementById('menu-bar').innerHTML = 'Failed to fetch data from Atomic Assest API. Try again when they fix their shit. (' + error + ')';
 	  	  });
       }
 
@@ -46,52 +41,101 @@
       
       window.onload = async function() {
           fetchNFTs();
+          // for testing
+          //processData(raw_asset.data);
       };
       
+      function highlightOwner(object) {
+          let owner = object.value;
+          for (let i = 1; i < plots.length; i++) {
+              if (typeof plots[i] != 'undefined') {
+                  for (let j = 1; j < plots[i].length; j++) {
+                       if (typeof plots[i][j] != 'undefined') {
+                           if (plots[i][j].owner == owner) {
+                               gridlines[i][j].setStyle({ color: "#ffff00" }).bringToFront();
+                           } else {
+                               gridlines[i][j].setStyle({ color: "#000000" }).bringToBack();
+                           }
+                       }
+                   }
+               }
+           }
+      }
+      
       function processData(data) {
-          var plots = new Array();
-              
           for (let i = 0; i < data.length; i++) {
               coords = data[i].mutable_data.uplift_location.split(',');
               coords[0] = parseInt(coords[0]) / 50;
               coords[1] = parseInt(coords[1]) / 50;
-              if( typeof plots[coords[0]] == 'undefined' ) plots[coords[0]] = new Array();
-              plots[coords[0]][coords[1]] = data[i];
+              if( typeof plots[coords[1]] == 'undefined' ) plots[coords[1]] = new Array();
+              plots[coords[1]][coords[0]] = data[i];
           }
-          
-          html = ''
                     
-          html += '<table>';
+          let map_offset_left = 24.0,
+              map_offset_top = 23.1,
+              plot_height = 25.0,
+              plot_width = 25.03;
           for (let i = 1; i < plots.length; i++) {
-              html += '<tr>';
-              if( typeof plots[i] == 'undefined' ) {
-                  html += '<td colspan=10>------------------------</td>';
-              } else {
+              if (typeof plots[i] != 'undefined') {
                   for (let j = 1; j < plots[i].length; j++) {
-                      if( typeof plots[i][j] == 'undefined' ) {
-                          html += '<td>.</td>';
-                      } else {
+                      if (typeof plots[i][j] != 'undefined') {
+                          let x = (j - 1) * plot_width + map_offset_left;
+                          let y = (79 - i) * plot_width + map_offset_top;
                           let plot = plots[i][j].data
-                          html += '<td><span class="tip">' 
-                           + 'NFT:&nbsp;<a href="https://wax.atomichub.io/explorer/asset/' + plots[i][j].asset_id + '">' +  plots[i][j].asset_id + '</a><br>'
-                           +  plot.rarity.proper() + '&nbsp' + plot.mineral + '<br>'
-                           + 'Location: ' + plot.uplift_location + '<br>'
-                           +' </span>' + plots[i][j].owner + '</td>';
+                          let poptext = plots[i][j].owner + '<br>'
+                               + 'NFT:&nbsp;<a href="https://wax.atomichub.io/explorer/asset/' + plots[i][j].asset_id + '">' +  plots[i][j].asset_id + '</a><br>'
+                               +  plot.rarity.proper() + '&nbsp' + plot.mineral + '<br>'
+                               + 'Location: ' + plot.uplift_location + '<br>'
+                               + '<a href="https://worldmaps.theuplift.world/Swineland#Swineland;flat;' + (j * 50 + 25) + ',64,' + (i * 50 + 25) + ';6">Live Map</a><br>';
+                          if( typeof gridlines[i] == 'undefined' ) gridlines[i] = new Array();
+                          gridlines[i][j] = L.rectangle([[y, x],[y+plot_width, x+plot_width]], {color: "#000000", weight: 5}).bindPopup(poptext).addTo(map);
+                          if (typeof owners[plots[i][j].owner] === 'undefined') {
+                              owners[plots[i][j].owner] = 1;
+                          } else {
+                              owners[plots[i][j].owner]++;
+                          }
                       }
                   }
               }
-              html += '</tr>';
           }
-          html += '</table>';
-          tippy('[tippy-content]');
-          document.getElementById('content').innerHTML = html
+          
+          html = 'Highlight Owner: <select name="owner" id="owner"" onchange="highlightOwner(this)">'
+                +'<option value=""></option>'
+          sortedowners = Object.keys(owners),
+          sortedowners.sort();
+          for (let i = 0; i < sortedowners.length; i++) {
+              html += '<option value="' + sortedowners[i] + '">' + sortedowners[i] + ' (' + owners[sortedowners[i]] + ')</option>';
+          }
+          html += '</select>';
+          document.getElementById('menu-bar').innerHTML = html;
       }
       
   </script>
 </head>
 <body>
-<script src="https://unpkg.com/@popperjs/core@2/dist/umd/popper.min.js"></script>
-<script src="https://unpkg.com/tippy.js@6/dist/tippy-bundle.umd.js"></script>
-<div id='content'>Loading...</div>
+    <div id="menu-bar">
+        Loading NFT data....
+    </div>
+    <div id="image-map"></div>
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js" integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA==" crossorigin=""></script>
+    <script>
+        var map = L.map('image-map', {
+          minZoom: 0,
+          maxZoom: 4,
+          center: [2000, 100],
+          zoom: 2,
+          crs: L.CRS.Simple
+        });
+
+        var w = 2026,
+            h = 2026,
+            url = 'map.png';
+
+        var bounds = new L.LatLngBounds([0,h], [w, 0]);
+        L.imageOverlay(url, bounds).addTo(map);
+
+        bounds = new L.LatLngBounds([-20,h+20], [w+20, -20]);
+        map.setMaxBounds(bounds);
+    </script>
 </body>
 </html>
