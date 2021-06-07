@@ -119,9 +119,9 @@
                   for (let j = 1; j < plots[i].length; j++) {
                        if (typeof plots[i][j] != 'undefined') {
                            if (plots[i][j].owner == owner) {
-                               gridlines[i][j].setStyle({ color: "#ffff00" }).bringToFront();
+                               gridlines[j][i].setStyle({ color: "#ffff00" }).bringToFront();
                            } else {
-                               gridlines[i][j].setStyle({ color: "#000000" }).bringToBack();
+                               gridlines[j][i].setStyle({ color: "#000000" }).bringToBack();
                            }
                        }
                    }
@@ -195,7 +195,7 @@
       
       function panHighlight(grid) {
           highlightOwner('');
-          gridlines[grid.y][grid.x].setStyle({ color: "#ffff00" }).bringToFront();
+          gridlines[grid.x][grid.y].setStyle({ color: "#ffff00" }).bringToFront();
           panTo(grid)
       }
       
@@ -296,8 +296,8 @@
                                +  plot.rarity.proper() + '&nbsp' + plot.mineral + '<br>'
                                + 'Location: ' + plot.uplift_location + '<br>'
                                + '<a href="https://worldmaps.theuplift.world/Swineland#Swineland;flat;' + (j * 50 + 25) + ',64,' + (i * 50 + 25) + ';6">Live Map</a><br>';
-                          if( typeof gridlines[i] == 'undefined' ) gridlines[i] = new Array();
-                          gridlines[i][j] = L.rectangle([[y, x],[y+plot_width, x+plot_width]], {color: "#000000", weight: 5}).bindPopup(poptext).addTo(map);
+                          if( typeof gridlines[j] == 'undefined' ) gridlines[j] = new Array();
+                          gridlines[j][i] = L.rectangle([[y, x],[y+plot_width, x+plot_width]], {color: "#000000", weight: 5}).bindPopup(poptext).addTo(map);
                           if (typeof owners[plots[i][j].owner] === 'undefined') {
                               owners[plots[i][j].owner] = 1;
                           } else {
