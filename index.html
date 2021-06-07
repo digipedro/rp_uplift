@@ -24,6 +24,9 @@
       #nextsale {
           margin-left: 3em;
       }
+      #saletimer {
+          font-size: smaller;
+      }
       .number-label {
           font-weight: bold;
           font-size: 2em;
@@ -33,6 +36,7 @@
       }
       body {
           margin-left: 0px;
+          font-family:'Roboto',sans-serif;
       }
   </style>
   <script>
@@ -40,8 +44,9 @@
       var owners = new Object();
       var gridlines = new Array();
       var last_sale_date = 0;
-      var show_next = 4;
+      var show_next = null;
       var sale_timer;
+      var next_uplift = null;
       
 	  //var api_server = 'wax.greymass.com'
 	  const api_server = 'wax.cryptolions.io'
@@ -103,11 +108,12 @@
       window.onload = async function() {
           fetchNFTs();
           // for testing
-          //processData(raw_asset.data);
+          // processData(raw_asset.data);
       };
       
       function highlightOwner(owner) {
-          window.history.replaceState({ additionalInformation: 'Filter for owner' }, 'Uplift Swineland Plots', window.location.href.split('?')[0] + '?owner=' + encodeURIComponent(owner));
+          window.history.replaceState({ additionalInformation: 'Filter for owner' }, 'Uplift Swineland Plots', window.location.href.split('?')[0] + ((owner == '') ? '' : '?owner=' + encodeURIComponent(owner)));
+          document.getElementById('owner').value = owner
           for (let i = 1; i < plots.length; i++) {
               if (typeof plots[i] != 'undefined') {
                   for (let j = 1; j < plots[i].length; j++) {
@@ -157,60 +163,116 @@
           location = parseInt(location);
           let y = Math.floor(location / 214748364800);
           let x = (location - y * 214748364800) / 50;
-          return {x : x, y: y};
+          return {x: x, y: y};
       }
       
       function gridToMap(grid) {
           let xx = (grid.x - 1) * plot_width + map_offset_left;
           let yy = (79 - grid.y) * plot_width + map_offset_top;
-          return {x : xx, y: yy};
+          return {x: xx, y: yy};
       }
       
       function highlightGrid(grid, color, number, poptext) {
           let mapcord = gridToMap(grid)
-          
+          let opacity = (color === null) ? 0.0 : 1.0;
+          let fillOpacity = (color === null) ? 0.0 : 0.2;
           if( typeof gridlines[grid.x] == 'undefined' ) gridlines[grid.x] = new Array();
-          gridlines[grid.x][grid.y] = L.rectangle([[mapcord.y, mapcord.x],[mapcord.y+plot_width, mapcord.x+plot_width]], {color: color, weight: 5}).bindPopup(poptext).addTo(map);
-          
-          var myIcon = L.divIcon({className: 'number-label', html: number});
-          L.marker([mapcord.y+plot_width+10, mapcord.x+plot_width+5], {icon: myIcon}).addTo(map);
+          if( typeof gridlines[grid.x][grid.y] == 'undefined' )
+              gridlines[grid.x][grid.y] = L.rectangle([[mapcord.y, mapcord.x],[mapcord.y+plot_width, mapcord.x+plot_width]], {color: color, weight: 5, opacity: opacity, fillOpacity: fillOpacity}).bindPopup(poptext).addTo(map);
+          else
+              gridlines[grid.x][grid.y].setStyle({ color: color, weight: 5, opacity: opacity, fillOpacity: fillOpacity });
+
+          if (color != null) {
+              var myIcon = L.divIcon({className: 'number-label', html: number});
+              L.marker([mapcord.y+plot_width+10, mapcord.x+plot_width+5], {icon: myIcon}).addTo(markerGroup);
+          }
+      }
+      
+      function panTo(grid) {
+          let mapcord = gridToMap(grid);
+          map.panTo(new L.LatLng(mapcord.y, mapcord.x));
+      }
+      
+      function panHighlight(grid) {
+          highlightOwner('');
+          gridlines[grid.y][grid.x].setStyle({ color: "#ffff00" }).bringToFront();
+          panTo(grid)
       }
       
       function processNew(data) {
           var html = "";
           last_sale_date = new Date(data[0].timestamp + 'Z');
           let grid = locationToGrid(data[0].data.loc);
-          let mapcord = gridToMap(grid);
-          html += 'Newest: <a href="javascript:map.panTo(new L.LatLng('+mapcord.y+','+mapcord.x+'));">' + (grid.x * 50) + ':' + (grid.y * 50) + '</a>';
+          html += 'Newest: <a href="javascript:panHighlight({x:' + grid.x + ', y:' + grid.y +'})">' + (grid.x * 50) + ':' + (grid.y * 50) + '</a>';
           document.getElementById('lastsale').innerHTML = html;
           timeSince();
           sale_timer = setInterval(timeSince, 10000);
           
+          next_uplift = data[0].data.order;
+          
+          showFuturePlots(true);
+      }
+      
+      function showFuturePlots(first_time) {
           let counter = 1;
-          for (let i = 1; i <= show_next; i++) {
-              let nextorder = data[0].data.order + i;
+          let max_plots = 100;
+          for (let i = 1; i <= max_plots; i++) {
+              let nextorder = next_uplift + i;
               let found = cached_uplifts.find( ({ order }) => order == nextorder );
               if (found.asset_id != 0) {
-                  show_next++;
+                  max_plots++;
                   continue;
               }
-              let color = (counter == 1) ? '#00ff00' : '#00bb00';
-              let name = (counter == 1) ? 'Next Uplift' : 'Uplift After Next';
-              if (counter > 2) name += (counter - 1);
               
               grid = locationToGrid(found.loc);
+              
+              let color = (counter == 1) ? '#00ff00' : '#00bb00';
+              if (counter > show_next) color = null;
+              let name = (counter == 1) ? 'Next Uplift' : 'Uplift After Next ';
+              if (counter > 2) name += (counter - 1);
+              
               let poptext = name + '<br>'
                   + 'Location: ' + (grid.x * 50) + ':' + (grid.y * 50) + '<br>'
                   + '<a href="https://worldmaps.theuplift.world/Swineland#Swineland;flat;' + (grid.x * 50 + 25) + ',64,' + (grid.y * 50 + 25) + ';6">Live Map</a><br>';
               highlightGrid(grid, color, counter, poptext);
               
-              if (counter == 1) {
-                  mapcord = gridToMap(grid);
-                  html = 'Next: <a href="javascript:map.panTo(new L.LatLng('+mapcord.y+','+mapcord.x+'));">' + (grid.x * 50) + ':' + (grid.y * 50) + '</a>';
+              if (first_time && counter == 1) {
+                  html = 'Next: <a href="javascript:panTo({x:' + grid.x + ', y:' + grid.y +'})">' + (grid.x * 50) + ':' + (grid.y * 50) + '</a>'
+                       + '&nbsp Show: <select name="showselect" id="showselect"" onchange="change_showNext(this.value)">'
+                       + '<option value="1">1</option>'
+                       + '<option value="5">5</option>'
+                       + '<option value="10">10</option>'
+                       + '<option value="25">25</option>'
+                       + '<option value="50">50</option>'
+                       + '<option value="100">100</option>'
+                       + '</select>'; 
                   document.getElementById('nextsale').innerHTML = html;
+                  if (show_next != 1 && show_next != 5 && show_next != 10 && show_next != 25 && show_next != 50 && show_next != 100) {
+                      var opt = document.createElement('option');
+                      opt.appendChild(document.createTextNode(show_next));
+                      opt.value = show_next;
+                      document.getElementById('showselect').appendChild(opt);
+                  }
+                  document.getElementById('showselect').value = show_next;
               }
+              
               counter++;
           }
+      }
+      
+      function change_showNext(num) {
+          set_showNext(num);
+          document.getElementById('showselect').value = show_next;
+          markerGroup.clearLayers();
+          showFuturePlots();
+      }
+      
+      function set_showNext(num) {
+          num = parseInt(num);
+          if (num < 1) num = 1;
+          if (num > 100) num = 100;
+          show_next = num;
+          localStorage.setItem('show_next', show_next);
       }
       
       function processData(data) {
@@ -253,7 +315,7 @@
           for (let i = 0; i < sortedowners.length; i++) {
               html += '<option value="' + sortedowners[i] + '">' + sortedowners[i] + ' (' + owners[sortedowners[i]] + ')</option>';
           }
-          html += '</select><span id="lastsale"></span><span id="saletimer"></span><span id="nextsale"></span>';
+          html += '</select><span id="lastsale">Loading future plots...</span><span id="saletimer"></span><span id="nextsale"></span>';
           document.getElementById('menu-bar').innerHTML = html;
         
     	  var queries = window.location.search.replace(/^\?/, '').split('&'), split;
@@ -261,10 +323,12 @@
     	      split = queries[i].split('=');
     		  if (split[0] === 'owner') highlightOwner(split[1]);
               if (split[0] === 'showNext') {
-                  show_next = parseInt(split[1]);
-                  if (show_next < 1) show_next = 1;
-                  if (show_next > 100) show_next = 100;
+                  set_showNext(split[1]);
               }
+          }
+          if (show_next === null) {
+              show_next = localStorage.getItem('show_next');
+              if (show_next === null) set_showNext(5);
           }
           
           fetchLastUplift();
@@ -296,6 +360,8 @@
 
         bounds = new L.LatLngBounds([-20,h+20], [w+80, -20]);
         map.setMaxBounds(bounds);
+        
+        var markerGroup = L.layerGroup().addTo(map);
     </script>
 </body>
 </html>
