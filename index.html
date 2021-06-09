@@ -47,10 +47,11 @@
       var show_next = null;
       var sale_timer;
       var next_uplift = null;
+      var showingNeighbors = new Array();
       
-	  //var api_server = 'wax.greymass.com'
+	  //const api_server = 'wax.greymass.com'
 	  const api_server = 'wax.cryptolions.io'
-      //var api_server = 'api.waxsweden.org'
+      //const api_server = 'api.waxsweden.org'
       
       const map_offset_left = 24.0,
           map_offset_top = 23.1,
@@ -108,20 +109,20 @@
       window.onload = async function() {
           fetchNFTs();
           // for testing
-          // processData(raw_asset.data);
+          //processData(raw_asset.data);
       };
       
       function highlightOwner(owner) {
           window.history.replaceState({ additionalInformation: 'Filter for owner' }, 'Uplift Swineland Plots', window.location.href.split('?')[0] + ((owner == '') ? '' : '?owner=' + encodeURIComponent(owner)));
           document.getElementById('owner').value = owner
-          for (let i = 1; i < plots.length; i++) {
-              if (typeof plots[i] != 'undefined') {
-                  for (let j = 1; j < plots[i].length; j++) {
-                       if (typeof plots[i][j] != 'undefined') {
-                           if (plots[i][j].owner == owner) {
-                               gridlines[j][i].setStyle({ color: "#ffff00" }).bringToFront();
+          for (let x = 1; x < plots.length; x++) {
+              if (typeof plots[x] != 'undefined') {
+                  for (let y = 1; y < plots[x].length; y++) {
+                       if (typeof plots[x][y] != 'undefined') {
+                           if (plots[x][y].owner == owner) {
+                               gridlines[x][y].setStyle({ color: "#ffff00" }).bringToFront();
                            } else {
-                               gridlines[j][i].setStyle({ color: "#000000" }).bringToBack();
+                               gridlines[x][y].setStyle({ color: "#000000" }).bringToBack();
                            }
                        }
                    }
@@ -166,13 +167,17 @@
           return {x: x, y: y};
       }
       
+      function gridToLocation(grid) {
+          return (grid.y * 50 * 214748364800) / 50 + (grid.x * 50);
+      }
+      
       function gridToMap(grid) {
           let xx = (grid.x - 1) * plot_width + map_offset_left;
           let yy = (79 - grid.y) * plot_width + map_offset_top;
           return {x: xx, y: yy};
       }
       
-      function highlightGrid(grid, color, number, poptext) {
+      function highlightGrid(grid, color, number, poptext, offset=true) {
           let mapcord = gridToMap(grid)
           let opacity = (color === null) ? 0.0 : 1.0;
           let fillOpacity = (color === null) ? 0.0 : 0.2;
@@ -184,7 +189,9 @@
 
           if (color != null) {
               var myIcon = L.divIcon({className: 'number-label', html: number});
-              L.marker([mapcord.y+plot_width+10, mapcord.x+plot_width+5], {icon: myIcon}).addTo(markerGroup);
+              let x = (offset) ? mapcord.x + plot_width + 5 : mapcord.x + 10;
+              let y = (offset) ? mapcord.y + plot_width + 10 : mapcord.y + 10;
+              L.marker([y, x], {icon: myIcon}).addTo(markerGroup);
           }
       }
       
@@ -213,9 +220,43 @@
           showFuturePlots(true);
       }
       
+      function showNeighbors(grid) {
+          showingNeighbors.push(grid);
+          for (let x = (grid.x - 1); x <= (grid.x + 1); x++) {
+              for (let y = (grid.y - 1); y <= (grid.y + 1); y++) {
+                  if (typeof plots[x] != 'undefined' && typeof plots[x][y] != 'undefined')
+                      continue;
+                  let found = cached_uplifts.find( ({ loc }) => loc == gridToLocation({x: x,y: y}) );
+                  if (typeof found == 'undefined')
+                      continue;
+                  
+                  let poptext = 'Available after ' + (found.order - next_uplift) + ' Uplifts.<br>'
+                      + 'Location: ' + (x * 50) + ':' + (y * 50) + '<br>'
+                      + '<a href="https://worldmaps.theuplift.world/Swineland#Swineland;flat;' + (x * 50 + 25) + ',64,' + (y * 50 + 25) + ';6">Live Map</a><br>';
+                  highlightGrid({x: x, y: y}, '#bbff00', (found.order - next_uplift), poptext, false);
+              }
+          }
+      }
+      
+      function hideNeighbors() {
+          for (let i = 0; i < showingNeighbors.length; i++) {
+              let grid = showingNeighbors[i];
+              for (let x = (grid.x - 1); x <= (grid.x + 1); x++) {
+                  for (let y = (grid.y - 1); y <= (grid.y + 1); y++) {
+                      if (typeof plots[x] != 'undefined' && typeof plots[x][y] != 'undefined')
+                          continue;
+                      highlightGrid({x: x, y: y}, null, 0, '');
+                  }
+              }
+          }
+          showingNeighbors = new Array();
+      }
+      
       function showFuturePlots(first_time) {
           let counter = 1;
           let max_plots = 100;
+          if (!first_time && showingNeighbors.length)
+              hideNeighbors();
           for (let i = 1; i <= max_plots; i++) {
               let nextorder = next_uplift + i;
               let found = cached_uplifts.find( ({ order }) => order == nextorder );
@@ -233,7 +274,8 @@
               
               let poptext = name + '<br>'
                   + 'Location: ' + (grid.x * 50) + ':' + (grid.y * 50) + '<br>'
-                  + '<a href="https://worldmaps.theuplift.world/Swineland#Swineland;flat;' + (grid.x * 50 + 25) + ',64,' + (grid.y * 50 + 25) + ';6">Live Map</a><br>';
+                  + '<a href="https://worldmaps.theuplift.world/Swineland#Swineland;flat;' + (grid.x * 50 + 25) + ',64,' + (grid.y * 50 + 25) + ';6">Live Map</a><br>'
+                  + '<a href="javascript:showNeighbors({x: ' + grid.x + ',y:' + grid.y + '});">Wen Neighbor?</a>';
               highlightGrid(grid, color, counter, poptext);
               
               if (first_time && counter == 1) {
@@ -280,28 +322,28 @@
               coords = data[i].mutable_data.uplift_location.split(',');
               coords[0] = parseInt(coords[0]) / 50;
               coords[1] = parseInt(coords[1]) / 50;
-              if( typeof plots[coords[1]] == 'undefined' ) plots[coords[1]] = new Array();
-              plots[coords[1]][coords[0]] = data[i];
+              if( typeof plots[coords[0]] == 'undefined' ) plots[coords[0]] = new Array();
+              plots[coords[0]][coords[1]] = data[i];
           }
                     
-          for (let i = 1; i < plots.length; i++) {
-              if (typeof plots[i] != 'undefined') {
-                  for (let j = 1; j < plots[i].length; j++) {
-                      if (typeof plots[i][j] != 'undefined') {
-                          let x = (j - 1) * plot_width + map_offset_left;
-                          let y = (79 - i) * plot_width + map_offset_top;
-                          let plot = plots[i][j].data
-                          let poptext = '<a href="javascript:highlightOwner(\'' + plots[i][j].owner + '\');">' + plots[i][j].owner + '</a><br>'
-                               + 'NFT:&nbsp;<a href="https://wax.atomichub.io/explorer/asset/' + plots[i][j].asset_id + '">' +  plots[i][j].asset_id + '</a><br>'
+          for (let x = 1; x < plots.length; x++) {
+              if (typeof plots[x] != 'undefined') {
+                  for (let y = 1; y < plots[x].length; y++) {
+                      if (typeof plots[x][y] != 'undefined') {
+                          let plot = plots[x][y].data
+                          let poptext = '<a href="javascript:highlightOwner(\'' + plots[x][y].owner + '\');">' + plots[x][y].owner + '</a><br>'
+                               + 'NFT:&nbsp;<a href="https://wax.atomichub.io/explorer/asset/' + plots[x][y].asset_id + '">' +  plots[x][y].asset_id + '</a><br>'
                                +  plot.rarity.proper() + '&nbsp' + plot.mineral + '<br>'
                                + 'Location: ' + plot.uplift_location + '<br>'
-                               + '<a href="https://worldmaps.theuplift.world/Swineland#Swineland;flat;' + (j * 50 + 25) + ',64,' + (i * 50 + 25) + ';6">Live Map</a><br>';
-                          if( typeof gridlines[j] == 'undefined' ) gridlines[j] = new Array();
-                          gridlines[j][i] = L.rectangle([[y, x],[y+plot_width, x+plot_width]], {color: "#000000", weight: 5}).bindPopup(poptext).addTo(map);
-                          if (typeof owners[plots[i][j].owner] === 'undefined') {
-                              owners[plots[i][j].owner] = 1;
+                               + '<a href="https://worldmaps.theuplift.world/Swineland#Swineland;flat;' + (x * 50 + 25) + ',64,' + (y * 50 + 25) + ';6">Live Map</a><br>'
+                               + '<a href="javascript:showNeighbors({x: ' + x + ',y:' + y + '});">Wen Neighbor?</a>';
+                          if( typeof gridlines[x] == 'undefined' ) gridlines[x] = new Array();
+                          let mapcord = gridToMap({x: x, y: y});
+                          gridlines[x][y] = L.rectangle([[mapcord.y, mapcord.x],[mapcord.y + plot_width, mapcord.x + plot_width]], {color: "#000000", weight: 5}).bindPopup(poptext).addTo(map);
+                          if (typeof owners[plots[x][y].owner] === 'undefined') {
+                              owners[plots[x][y].owner] = 1;
                           } else {
-                              owners[plots[i][j].owner]++;
+                              owners[plots[x][y].owner]++;
                           }
                       }
                   }
