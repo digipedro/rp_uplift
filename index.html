@@ -18,6 +18,9 @@
           height: 3em;
           text-align: center;
       }
+      #mapchoice {
+          margin-right: 3em;
+      }
       #lastsale {
           margin-left: 3em;
       }
@@ -59,8 +62,11 @@
           plot_width = 25.03;
       
       function fetchNFTs() {
-		  fetch("https://wax.api.atomicassets.io/atomicassets/v1/assets?collection_name=rplanet&schema_name=lands&page=1&limit=2000&mutable_data.uplift_world=Swineland")
-		  .then(response => response.json())
+          var url = "https://wax.api.atomicassets.io/atomicassets/v1/assets?collection_name=rplanet&schema_name="
+              + ((land == 'swine') ? 'lands' : 'lands2') + "&page=1&limit=2000&mutable_data.uplift_world="
+              + ((land == 'swine') ? 'Swineland' : 'Boarvallis');
+          console.log(url);
+		  fetch(url).then(response => response.json())
           .then(data => processData(data.data))
 	  	  .catch(error => {
               document.getElementById('menu-bar').innerHTML = 'Failed to fetch data from Atomic Assest API. Try again when they fix their shit. (' + error + ')';
@@ -350,15 +356,28 @@
               }
           }
           
-          html = 'Highlight Owner: <select name="owner" id="owner"" onchange="highlightOwner(this.value)">'
+          html = '<span id="mapchoice">';
+          if (land == 'swine')
+              html += '<b>Swineland</b> | <a href="' + window.location.href.split('?')[0] + '?land=boar">Boarvallis</a></span>';
+          else
+              html += '<a href="' + window.location.href.split('?')[0] + '?land=boar">Swineland</a> | <b>Boarvallis</b></span>';
+
+          html += 'Highlight Owner: <select name="owner" id="owner"" onchange="highlightOwner(this.value)">'
                 +'<option value=""></option>'
           sortedowners = Object.keys(owners),
           sortedowners.sort();
           for (let i = 0; i < sortedowners.length; i++) {
               html += '<option value="' + sortedowners[i] + '">' + sortedowners[i] + ' (' + owners[sortedowners[i]] + ')</option>';
           }
+          if (land != 'swine') {
+              html += '</select><span id="lastsale">Future plot data not yet avilable</span><span id="saletimer"></span><span id="nextsale"></span>';
+              document.getElementById('menu-bar').innerHTML = html;
+              return;
+          }
+          
           html += '</select><span id="lastsale">Loading future plots...</span><span id="saletimer"></span><span id="nextsale"></span>';
           document.getElementById('menu-bar').innerHTML = html;
+        
         
     	  var queries = window.location.search.replace(/^\?/, '').split('&'), split;
     	  for( var i = 0; i < queries.length; i++ ) {
@@ -385,6 +404,13 @@
     <div id="image-map"></div>
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js" integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA==" crossorigin=""></script>
     <script>
+  	    var queries = window.location.search.replace(/^\?/, '').split('&'), split;
+        var land = 'swine'
+  	    for( var i = 0; i < queries.length; i++ ) {
+  	        split = queries[i].split('=');
+  		    if (split[0] === 'land' && split[1] == 'boar') land = 'boar';
+        }
+        
         var map = L.map('image-map', {
           minZoom: -1,
           maxZoom: 4,
@@ -395,7 +421,7 @@
 
         var w = 2026,
             h = 2026,
-            url = 'map.jpg';
+            url = (land == 'swine') ? 'map.jpg' : 'map2.jpg';
 
         var bounds = new L.LatLngBounds([0,h], [w, 0]);
         L.imageOverlay(url, bounds).addTo(map);
