@@ -53,8 +53,8 @@
       var showingNeighbors = new Array();
       
 	  //const api_server = 'wax.greymass.com'
-	  const api_server = 'wax.cryptolions.io'
-      //const api_server = 'api.waxsweden.org'
+	  //const api_server = 'wax.cryptolions.io'
+      const api_server = 'api.waxsweden.org'
       
       const map_offset_left = 24.0,
           map_offset_top = 23.1,
@@ -75,7 +75,7 @@
       
       async function fetchLastUplift() {
           var deltas;
-		  await fetch("https://" + api_server + "/v2/history/get_deltas?code=l.rplanet&scope=l.rplanet&table=uplift")
+		  await fetch("https://" + api_server + "/v2/history/get_deltas?code=l.rplanet&scope=" + ((land == 'swine') ? 'l.rplanet' : 'boarvallis') + "&table=uplift")
 		  .then(response => response.json())
           .then(data => deltas = data.deltas)
 	  	  .catch(error => {
@@ -97,7 +97,7 @@
 		      "sec-fetch-site": "cross-site"
 		    },
 		    "referrerPolicy": "strict-origin-when-cross-origin",
-		    "body": '{"json":true,"code":"l.rplanet","scope":"l.rplanet","table":"uplift","lower_bound":"14173392078600","upper_bound":"","index_position":1,"key_type":"","limit":6000,"reverse":false,"show_payer":false}',
+		    "body": '{"json":true,"code":"l.rplanet","scope":"boarvallis","table":"uplift","lower_bound":"14173392078600","upper_bound":"","index_position":1,"key_type":"","limit":6000,"reverse":false,"show_payer":false}',
 		    "method": "POST",
 		    "mode": "cors",
 		    "credentials": "omit" })
@@ -119,7 +119,7 @@
       };
       
       function highlightOwner(owner) {
-          window.history.replaceState({ additionalInformation: 'Filter for owner' }, 'Uplift Swineland Plots', window.location.href.split('?')[0] + ((owner == '') ? '' : '?owner=' + encodeURIComponent(owner)));
+          window.history.replaceState({ additionalInformation: 'Filter for owner' }, 'Uplift Swineland Plots', window.location.href.split('?')[0] + ((owner == '') ? '' : '?owner=' + encodeURIComponent(owner)) + ((land == 'swine') ? '' : ((owner == '') ? '?' : '&') + 'land=boar'));
           document.getElementById('owner').value = owner
           for (let x = 1; x < plots.length; x++) {
               if (typeof plots[x] != 'undefined') {
@@ -360,7 +360,7 @@
           if (land == 'swine')
               html += '<b>Swineland</b> | <a href="' + window.location.href.split('?')[0] + '?land=boar">Boarvallis</a></span>';
           else
-              html += '<a href="' + window.location.href.split('?')[0] + '?land=boar">Swineland</a> | <b>Boarvallis</b></span>';
+              html += '<a href="' + window.location.href.split('?')[0] + '?land=swine">Swineland</a> | <b>Boarvallis</b></span>';
 
           html += 'Highlight Owner: <select name="owner" id="owner"" onchange="highlightOwner(this.value)">'
                 +'<option value=""></option>'
@@ -368,11 +368,6 @@
           sortedowners.sort();
           for (let i = 0; i < sortedowners.length; i++) {
               html += '<option value="' + sortedowners[i] + '">' + sortedowners[i] + ' (' + owners[sortedowners[i]] + ')</option>';
-          }
-          if (land != 'swine') {
-              html += '</select><span id="lastsale">Future plot data not yet avilable</span><span id="saletimer"></span><span id="nextsale"></span>';
-              document.getElementById('menu-bar').innerHTML = html;
-              return;
           }
           
           html += '</select><span id="lastsale">Loading future plots...</span><span id="saletimer"></span><span id="nextsale"></span>';
@@ -421,7 +416,8 @@
 
         var w = 2026,
             h = 2026,
-            url = (land == 'swine') ? 'map.jpg' : 'map2.jpg';
+            url = (land == 'swine') ? 'map.jpg' : 'map2.jpg',
+        cached_uplifts = (land == 'swine') ? cached_swine_uplifts : cached_boar_uplifts;
 
         var bounds = new L.LatLngBounds([0,h], [w, 0]);
         L.imageOverlay(url, bounds).addTo(map);
