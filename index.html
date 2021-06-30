@@ -238,7 +238,7 @@
                   
                   let poptext = 'Available after ' + (found.order - next_uplift) + ' Uplifts.<br>'
                       + 'Location: ' + (x * 50) + ':' + (y * 50) + '<br>'
-                      + '<a href="https://worldmaps.theuplift.world/Swineland#Swineland;flat;' + (x * 50 + 25) + ',64,' + (y * 50 + 25) + ';6">Live Map</a><br>';
+                      + '<a href="https://worldmaps.theuplift.world/' + ((land == 'swine') ? 'Swineland#Swineland' : 'Boarvallis#Boarvallis') + ';flat;' + (x * 50 + 25) + ',64,' + (y * 50 + 25) + ';6">Live Map</a><br>';
                   highlightGrid({x: x, y: y}, '#bbff00', (found.order - next_uplift), poptext, false);
               }
           }
@@ -280,7 +280,7 @@
               
               let poptext = name + '<br>'
                   + 'Location: ' + (grid.x * 50) + ':' + (grid.y * 50) + '<br>'
-                  + '<a href="https://worldmaps.theuplift.world/Swineland#Swineland;flat;' + (grid.x * 50 + 25) + ',64,' + (grid.y * 50 + 25) + ';6">Live Map</a><br>'
+                  + '<a href="https://worldmaps.theuplift.world/' + ((land == 'swine') ? 'Swineland#Swineland' : 'Boarvallis#Boarvallis') + ';flat;' + (grid.x * 50 + 25) + ',64,' + (grid.y * 50 + 25) + ';6">Live Map</a><br>'
                   + '<a href="javascript:showNeighbors({x: ' + grid.x + ',y:' + grid.y + '});">Wen Neighbor?</a>';
               highlightGrid(grid, color, counter, poptext);
               
@@ -341,7 +341,7 @@
                                + 'NFT:&nbsp;<a href="https://wax.atomichub.io/explorer/asset/' + plots[x][y].asset_id + '">' +  plots[x][y].asset_id + '</a><br>'
                                +  plot.rarity.proper() + '&nbsp' + plot.mineral + '<br>'
                                + 'Location: ' + plot.uplift_location + '<br>'
-                               + '<a href="https://worldmaps.theuplift.world/Swineland#Swineland;flat;' + (x * 50 + 25) + ',64,' + (y * 50 + 25) + ';6">Live Map</a><br>'
+                               + '<a href="https://worldmaps.theuplift.world/' + ((land == 'swine') ? 'Swineland#Swineland' : 'Boarvallis#Boarvallis') + ';flat;' + (x * 50 + 25) + ',64,' + (y * 50 + 25) + ';6">Live Map</a><br>'
                                + '<a href="javascript:showNeighbors({x: ' + x + ',y:' + y + '});">Wen Neighbor?</a>';
                           if( typeof gridlines[x] == 'undefined' ) gridlines[x] = new Array();
                           let mapcord = gridToMap({x: x, y: y});
