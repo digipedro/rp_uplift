@@ -51,10 +51,14 @@
       var sale_timer;
       var next_uplift = null;
       var showingNeighbors = new Array();
-      
-	  //const api_server = 'wax.greymass.com'
-	  const api_server = 'wax.cryptolions.io'
-      //const api_server = 'api.waxsweden.org'
+            
+      const wax_endpoints = [
+          'https://wax.eosphere.io',
+          'https://wax.cryptolions.io',
+          'https://api.waxsweden.org',
+          'https://wax.greymass.com',
+      ];
+      var cur_wax = 0;
       
       const map_offset_left = 24.0,
           map_offset_top = 23.1,
@@ -73,14 +77,37 @@
 	  	  });
       }
       
+      function cycleWaxEndpoint() {
+          cur_wax++;
+          if (cur_wax > (wax_endpoints.length - 1))
+              cur_wax = 0;
+      }
+      
+      async function waxFetch(url, retries = 0) {
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), 10000)
+          let params = {
+              signal: controller.signal
+          }
+          let response = await fetch(wax_endpoints[cur_wax] + url, params).catch(e => {  console.log('waxFetch:fetch', e) });
+          clearTimeout(timeoutId);
+          if (response && response.status === 200) {
+              let data = await response.json().catch(e => {  console.log('waxFetch:response.json', e) });
+              if (data && data.deltas)
+                  return data.deltas;
+          }
+    
+          if (retries < 5) {
+              console.log("Trying another node, failed to fetch from", wax_endpoints[cur_wax]);
+              await cycleWaxEndpoint();
+              return waxFetch(url, (retries + 1));
+          } else {
+              throw("Unable to fetch data from any WAX nodes.")
+          }
+      }
+      
       async function fetchLastUplift() {
-          var deltas;
-		  await fetch("https://" + api_server + "/v2/history/get_deltas?code=l.rplanet&scope=" + ((land == 'swine') ? 'l.rplanet' : 'boarvallis') + "&table=uplift")
-		  .then(response => response.json())
-          .then(data => deltas = data.deltas)
-	  	  .catch(error => {
-              console.log('Failed to fetch data from Cryptolions API - ' + error);
-	  	  });
+          var deltas = await waxFetch("/v2/history/get_deltas?code=l.rplanet&scope=" + ((land == 'swine') ? 'l.rplanet' : 'boarvallis') + "&table=uplift");
           processNew(deltas);
       }
 
