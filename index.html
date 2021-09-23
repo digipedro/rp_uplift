@@ -65,9 +65,11 @@
           plot_height = 25.0,
           plot_width = 25.03;
       
+      var nft_page = 1;
+      
       function fetchNFTs() {
           var url = "https://wax.api.atomicassets.io/atomicassets/v1/assets?collection_name=rplanet&schema_name="
-              + ((land == 'swine') ? 'lands' : 'lands2') + "&page=1&limit=2000&mutable_data.uplift_world="
+              + ((land == 'swine') ? 'lands' : 'lands2') + "&page=" + nft_page + "&limit=1000&mutable_data.uplift_world="
               + ((land == 'swine') ? 'Swineland' : 'Boarvallis');
           console.log(url);
 		  fetch(url).then(response => response.json())
@@ -381,6 +383,12 @@
                       }
                   }
               }
+          }
+          
+          if (data.length == 1000) {
+              nft_page++;
+              fetchNFTs();
+              return 
           }
           
           html = '<span id="mapchoice">';
